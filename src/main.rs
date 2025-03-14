@@ -1,10 +1,12 @@
 use clap::Parser;
+use colored::Colorize;
 use dotenv::dotenv;
 use git2::{Repository, StatusOptions};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::error::Error;
+use std::io::Write;
 use std::process::Command;
 
 #[derive(Parser)]
@@ -52,7 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let repo = match Repository::open(".") {
         Ok(repo) => repo,
         Err(_) => {
-            eprintln!("Error: Not in a git repository");
+            eprintln!("{}", "Error: Not in a git repository".bright_red().bold());
             std::process::exit(1);
         }
     };
@@ -63,7 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let statuses = repo.statuses(Some(&mut status_options))?;
     
     if statuses.is_empty() {
-        println!("No changes to commit");
+        println!("{}", "No changes to commit".yellow().bold());
         return Ok(());
     }
 
@@ -71,21 +73,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let diff = get_git_diff(args.verbose)?;
     
     if diff.is_empty() {
-        println!("No staged changes to commit");
+        println!("{}", "No staged changes to commit".yellow().bold());
         return Ok(());
     }
     
     if args.verbose {
-        println!("Sending the following diff to Claude:\n{}", diff);
+        println!("{}\n{}", "Sending the following diff to Claude:".blue().italic(), diff);
     }
     
     // Generate commit message using Claude API
+    println!("{}", "Generating commit message...".blue());
     let commit_message = get_claude_commit_message(&api_key, &diff)?;
     
-    println!("Suggested commit message:\n\n{}", commit_message);
+    println!("\n{}\n\n{}", "Suggested commit message:".green().bold(), commit_message.bright_white());
     
     // Ask for confirmation
-    println!("Do you want to create a commit with this message? [y/N]");
+    print!("\n{} ", "Do you want to create a commit with this message? [y/N]".cyan());
+    std::io::stdout().flush()?;
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     
@@ -96,9 +100,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             .status()?;
             
         if status.success() {
-            println!("Commit created successfully!");
+            println!("{}", "✅ Commit created successfully!".green().bold());
         } else {
-            eprintln!("Failed to create commit");
+            eprintln!("{}", "❌ Failed to create commit".bright_red().bold());
         }
     }
     
@@ -131,7 +135,7 @@ fn get_git_diff(verbose: bool) -> Result<String, Box<dyn Error>> {
     }
     
     if verbose {
-        println!("Got diff of length: {}", diff.len());
+        println!("{}: {}", "Got diff of length".blue(), diff.len().to_string().yellow());
     }
     
     Ok(diff)
@@ -140,15 +144,15 @@ fn get_git_diff(verbose: bool) -> Result<String, Box<dyn Error>> {
 fn get_claude_commit_message(api_key: &str, diff: &str) -> Result<String, Box<dyn Error>> {
     let client = Client::new();
     
-    let system_message = "You are a helpful assistant that generates concise git commit messages based on diffs. \
-                         Your commit messages should follow these guidelines:\
-                         1. Start with a verb in the imperative mood (Add, Fix, Update, etc.)\
-                         2. Be concise but descriptive (under 50 characters if possible)\
-                         3. Focus on WHY the change is being made, not just WHAT\
-                         4. If needed, provide more details in a separate paragraph after a blank line\
-                         5. Format as a single line for the summary, then a blank line, then details if needed\
-                         6. No need to add lists of files changed, as git already tracks that\
-                         7. Return only the commit message text with no extra commentary";
+    let system_message = "Generate concise git commit messages from diffs. \
+                         Guidelines:\
+                         1. Start with imperative verb (Add, Fix, Update, etc.)\
+                         2. Be concise but descriptive (under 50 characters)\
+                         3. Describe WHAT changed, not WHY it's beneficial\
+                         4. Focus only on describing the technical changes made\
+                         5. Format as a single line summary\
+                         6. No lists of files changed\
+                         7. Return only the commit message with no commentary";
     
     let user_message = format!("Generate a commit message for the following git diff:\n\n```\n{}\n```", diff);
     
@@ -173,7 +177,7 @@ fn get_claude_commit_message(api_key: &str, diff: &str) -> Result<String, Box<dy
     
     if !response.status().is_success() {
         let error_text = response.text()?;
-        return Err(format!("API request failed: {}", error_text).into());
+        return Err(format!("{}: {}", "API request failed".bright_red().bold(), error_text).into());
     }
     
     let response_data: AnthropicResponse = response.json()?;
@@ -182,6 +186,6 @@ fn get_claude_commit_message(api_key: &str, diff: &str) -> Result<String, Box<dy
     if let Some(content_block) = response_data.content.first() {
         Ok(content_block.text.trim().to_string())
     } else {
-        Err("No content received from Claude API".into())
+        Err(format!("{}", "No content received from Claude API".bright_red().bold()).into())
     }
 }
