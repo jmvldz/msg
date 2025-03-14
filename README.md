@@ -1,4 +1,4 @@
-# Git Commit Message Generator using Claude
+# Git Commit Message Generator
 
 A CLI tool that generates commit messages based on git changes using Claude's AI API.
 
