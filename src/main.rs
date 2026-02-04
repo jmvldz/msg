@@ -163,15 +163,14 @@ fn get_claude_commit_message(api_key: &str, diff: &str) -> Result<String, Box<dy
                          1. Start with imperative verb (Add, Fix, Update, etc.)\
                          2. Format as a concise title line (under 50 characters)\
                          3. Follow with a blank line\
-                         4. Then include a bulleted list with each bullet using '-' format\
-                         5. Each bullet should describe a specific change made\
+                         4. Then include a bulleted list with each bullet using '-' format with three bullets AT MOST\
                          6. Focus on technical changes, not why they're beneficial\
                          7. Don't include a '## Changes' section\
                          8. Return only the formatted commit message with no commentary\
                          9. The title line should never be prefixed with #";
 
     let user_message = format!(
-        "Generate a commit message for the following git diff:\n\n```\n{}\n```",
+        "Generate a commit message for the following git diff, with three bullets of context AT MOST to be as concise as possible:\n\n```\n{}\n```",
         diff
     );
 
